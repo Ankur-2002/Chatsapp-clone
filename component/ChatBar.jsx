@@ -8,8 +8,17 @@ import styled from 'styled-components';
 import GetRecipient from '../Utils/GetRecipient';
 import { WhatsappDoddle } from '../asset/index';
 import Image from 'next/image';
-import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../Firebase';
+import TimeAgo from 'timeago-react';
+import {
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
+import { auth, db } from '../Firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
 const ChatBar = ({ user, chat, chatWith, id }) => {
   const [currentUser, setCurrentUser] = useState({});
   //  q .log(new Date(currentUser.lastseen?.seconds * 1000).toISOString());
@@ -23,8 +32,22 @@ const ChatBar = ({ user, chat, chatWith, id }) => {
     };
     get();
   }, [chatWith]);
+  const [users] = useAuthState(auth);
   const [userMessage, setMessage] = useState('');
   const SendMessage = async () => {
+    await setDoc(
+      doc(db, 'users', users.uid),
+      {
+        name: users.displayName,
+        email: users.email,
+        photo: users.photoURL,
+        lastseen: serverTimestamp(),
+      },
+      {
+        merge: true,
+      }
+    );
+
     const DOC = doc(db, 'chat', id);
     const docRef = await updateDoc(DOC, {
       chat: [...CHATS, { message: userMessage, time: new Date(), user: user }],
@@ -53,9 +76,11 @@ const ChatBar = ({ user, chat, chatWith, id }) => {
           <TimeZone>
             <h3>{chatWith}</h3>
             <p>
-              {currentUser?.lastseen
-                ? new Date(currentUser?.lastseen.seconds * 1000).toISOString()
-                : 'Unavailable'}
+              {currentUser?.lastseen ? (
+                <TimeAgo datatime={currentUser.lastseen.toDate()} />
+              ) : (
+                'Unavailable'
+              )}
             </p>
           </TimeZone>
         </ChatContainer>
